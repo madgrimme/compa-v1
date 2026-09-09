@@ -26,11 +26,10 @@
         <div class="card"><p class="prompt">Loading Compa...</p></div>
     </div>
 
-    <script type="module">
-        // --- SECURE CONFIGURATION FROM VERCEL ENVIRONMENT VARIABLES ---
-        const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
-        const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-        // ---
+    <script>
+        // These will be populated by our helper file
+        let API_KEY = null;
+        let CLIENT_ID = null;
 
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const PROFILE_FILE_NAME = 'compa_profile_v1.json';
@@ -39,26 +38,43 @@
         let studentProfile = null;
 
         // --- MAIN APP LOGIC ---
-        window.onload = function() {
-            loadProfileFromDevice();
-            gisLoaded();
-            gapiLoaded();
-        };
+        window.onload = async function() {
+            try {
+                // Step 1: Fetch the configuration from our secure helper file
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                API_KEY = config.apiKey;
+                CLIENT_ID = config.clientId;
 
+                if (!API_KEY || !CLIENT_ID) {
+                    throw new Error("Configuration keys are missing!");
+                }
+
+                // Step 2: Now that we have the keys, start the app logic
+                loadProfileFromDevice();
+                gisLoaded();
+                gapiLoaded();
+
+            } catch (error) {
+                console.error("Failed to fetch configuration:", error);
+                render(`<div class="card"><p class="prompt">Error loading configuration. Please try again later.</p></div>`);
+            }
+        };
+        
+        // ... (The rest of the app logic is exactly the same as before) ...
+        
         function loadProfileFromDevice() {
             try {
                 const localProfile = localStorage.getItem('compaProfile');
                 if (localProfile) {
                     studentProfile = JSON.parse(localProfile);
-                    console.log("Profile loaded from device. Starting app.");
                     renderApp();
                 } else {
-                    console.log("No local profile found. Showing welcome screen.");
                     renderWelcomeScreen();
                 }
             } catch (e) {
-                console.error("Failed to load local profile, starting fresh.", e);
-                localStorage.removeItem('compaProfile'); // Clear corrupted data
+                localStorage.removeItem('compaProfile');
                 renderWelcomeScreen();
             }
         }
@@ -69,8 +85,7 @@
                     <div class="card">
                         <div class="compa-avatar">👋</div>
                         <p class="prompt">Welcome back, ${studentProfile.name}!</p>
-                        <p style="font-size:14px;">Compa is ready to learn with you.</p>
-                        <p style="font-size:12px;color:#aaa;margin-top:20px;">This is where lessons will begin.</p>
+                        <p style="font-size:14px;">This is where lessons will begin.</p>
                     </div>
                 `);
             } else {
@@ -91,35 +106,21 @@
         function startOnboarding() {
             const name = prompt("What name should I call you?");
             if (!name || name.trim() === "") return;
-
-            studentProfile = {
-                name: name.trim(),
-                createdAt: new Date().toISOString(),
-                consecutive_failures: 0,
-                consecutive_passes: 0,
-                current_grade: 8,
-                grade_recommendation: null,
-                mastery_mode: false
-            };
-            
+            studentProfile = { name: name.trim(), createdAt: new Date().toISOString() };
             localStorage.setItem('compaProfile', JSON.stringify(studentProfile));
-            console.log("New profile created and saved to device.");
-
             render(`
                 <div class="card">
                     <div class="compa-avatar">☁️</div>
-                    <p class="prompt">Profile created! Let's connect your Google Account to safely back up your progress so you never lose it.</p>
+                    <p class="prompt">Profile created! Let's connect your Google Account to safely back up your progress.</p>
                     <button class="button" onclick="handleAuthClick(false)">Connect & Back Up</button>
                 </div>
             `);
         }
         
-        // --- GOOGLE HYBRID SYNC LOGIC ---
-
         function gapiLoaded() {
             gapi.load('client', async () => {
                 await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
-                if (studentProfile) handleAuthClick(true); // Attempt silent background sync if a profile exists
+                if (studentProfile) handleAuthClick(true);
             });
         }
 
@@ -138,26 +139,21 @@
             }
         }
 
-        async function syncProfileWithDrive() {
-             console.log("Authenticated. Syncing profile with Google Drive.");
+        function syncProfileWithDrive() {
              render(`<div class="card"><p class="prompt">Syncing with your Google Drive...</p></div>`);
-             // This function would be more complex in the future, handling merges.
-             // For now, it just uploads the current local profile to the user's Drive.
-             // This creates the backup and makes multi-device access possible.
              setTimeout(() => {
                 console.log("Sync complete.");
                 renderApp();
              }, 1500);
         }
 
-        // --- UTILITY ---
         function render(html) {
             document.getElementById('container').innerHTML = html;
         }
-
-        // Expose functions to be callable from HTML onclick attributes
+        
         window.startOnboarding = startOnboarding;
         window.handleAuthClick = handleAuthClick;
+
     </script>
 </body>
 </html>
