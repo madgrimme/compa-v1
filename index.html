@@ -27,7 +27,7 @@
     </div>
 
     <script>
-        // These will be populated by our helper file
+        // These will be populated by our secure helper file.
         let API_KEY = null;
         let CLIENT_ID = null;
 
@@ -37,32 +37,35 @@
         let tokenClient;
         let studentProfile = null;
 
-        // --- MAIN APP LOGIC ---
+        // Main entry point. This runs as soon as the page loads.
         window.onload = async function() {
             try {
-                // Step 1: Fetch the configuration from our secure helper file
+                // Step 1: Securely fetch the configuration from our helper file.
                 const response = await fetch('/api/config');
+                if (!response.ok) {
+                    throw new Error(`Configuration server responded with status: ${response.status}`);
+                }
                 const config = await response.json();
                 
                 API_KEY = config.apiKey;
                 CLIENT_ID = config.clientId;
 
                 if (!API_KEY || !CLIENT_ID) {
-                    throw new Error("Configuration keys are missing!");
+                    throw new Error("API Key or Client ID is missing from configuration.");
                 }
 
-                // Step 2: Now that we have the keys, start the app logic
+                console.log("Configuration loaded successfully.");
+                
+                // Step 2: Now that keys are loaded, initialize the app.
                 loadProfileFromDevice();
                 gisLoaded();
                 gapiLoaded();
 
             } catch (error) {
-                console.error("Failed to fetch configuration:", error);
-                render(`<div class="card"><p class="prompt">Error loading configuration. Please try again later.</p></div>`);
+                console.error("Critical Error: Failed to fetch configuration.", error);
+                render(`<div class="card"><p class="prompt">Could not load Compa's configuration. Please check your connection and try again.</p></div>`);
             }
         };
-        
-        // ... (The rest of the app logic is exactly the same as before) ...
         
         function loadProfileFromDevice() {
             try {
@@ -74,7 +77,7 @@
                     renderWelcomeScreen();
                 }
             } catch (e) {
-                localStorage.removeItem('compaProfile');
+                localStorage.removeItem('compaProfile'); // Clear corrupted data
                 renderWelcomeScreen();
             }
         }
@@ -134,6 +137,8 @@
         
         function handleAuthClick(isSilent = false) {
             const prompt = isSilent ? 'none' : 'consent';
+            if (!gapi.client) { console.error("GAPI client not initialized."); return; }
+            if (!tokenClient) { console.error("Token client not initialized."); return; }
             if (gapi.client.getToken() === null) {
                 tokenClient.requestAccessToken({ prompt: prompt });
             }
@@ -153,7 +158,6 @@
         
         window.startOnboarding = startOnboarding;
         window.handleAuthClick = handleAuthClick;
-
     </script>
 </body>
 </html>
