@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --cream: #F5F2EB; --jade: #2D6B5A; --coral: #D4614A; --ink: #333333; }
-        body { font-family: 'Baloo 2', cursive; background-color: var(--cream); color: var(--ink); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        body { font-family: 'Baloo 2', cursive; background-color: var(--cream); color: var(--ink); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px 0; }
         #container { max-width: 600px; width: 90%; text-align: center; }
         .card { background: white; border-radius: 16px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: auto; animation: slide-up 0.5s ease forwards; }
         @keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -17,6 +17,18 @@
         .prompt { font-size: 18px; line-height: 1.5; margin-bottom: 25px; }
         .button { display: block; width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px; text-align: center; font-size: 16px; font-weight: 700; cursor: pointer; background: #f9f9f9; }
         .button:hover { transform: translateY(-2px); }
+        
+        /* --- NEW FOOTER STYLES --- */
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+        }
+        .footer a {
+            color: var(--ink);
+            text-decoration: none;
+            margin: 0 10px;
+        }
     </style>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -24,6 +36,12 @@
 <body>
     <div id="container">
         <div class="card"><p class="prompt">Loading Compa...</p></div>
+    </div>
+
+    <!-- NEW FOOTER HTML -->
+    <div class="footer">
+        <a href="/privacy.html" target="_blank">Privacy Policy</a> | 
+        <a href="/terms.html" target="_blank">Terms of Service</a>
     </div>
 
     <script>
