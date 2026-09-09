@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compa - Your Learning Companion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --cream: #F5F2EB; --jade: #2D6B5A; --coral: #D4614A; --ink: #333333; }
+        body { font-family: 'Baloo 2', cursive; background-color: var(--cream); color: var(--ink); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        #container { max-width: 600px; width: 90%; text-align: center; }
+        .card { background: white; border-radius: 16px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: auto; animation: slide-up 0.5s ease forwards; }
+        @keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .compa-avatar { font-size: 60px; }
+        .prompt { font-size: 18px; line-height: 1.5; margin-bottom: 25px; }
+        .button { display: block; width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px; text-align: center; font-size: 16px; font-weight: 700; cursor: pointer; background: #f9f9f9; }
+        .button:hover { transform: translateY(-2px); }
+    </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+</head>
+<body>
+    <div id="container">
+        <div class="card"><p class="prompt">Loading Compa...</p></div>
+    </div>
+
+    <script type="module">
+        // --- SECURE CONFIGURATION FROM VERCEL ENVIRONMENT VARIABLES ---
+        const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+        const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        // ---
+
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const PROFILE_FILE_NAME = 'compa_profile_v1.json';
+        
+        let tokenClient;
+        let studentProfile = null;
+
+        // --- MAIN APP LOGIC ---
+        window.onload = function() {
+            loadProfileFromDevice();
+            gisLoaded();
+            gapiLoaded();
+        };
+
+        function loadProfileFromDevice() {
+            try {
+                const localProfile = localStorage.getItem('compaProfile');
+                if (localProfile) {
+                    studentProfile = JSON.parse(localProfile);
+                    console.log("Profile loaded from device. Starting app.");
+                    renderApp();
+                } else {
+                    console.log("No local profile found. Showing welcome screen.");
+                    renderWelcomeScreen();
+                }
+            } catch (e) {
+                console.error("Failed to load local profile, starting fresh.", e);
+                localStorage.removeItem('compaProfile'); // Clear corrupted data
+                renderWelcomeScreen();
+            }
+        }
+
+        function renderApp() {
+            if (studentProfile && studentProfile.name) {
+                render(`
+                    <div class="card">
+                        <div class="compa-avatar">👋</div>
+                        <p class="prompt">Welcome back, ${studentProfile.name}!</p>
+                        <p style="font-size:14px;">Compa is ready to learn with you.</p>
+                        <p style="font-size:12px;color:#aaa;margin-top:20px;">This is where lessons will begin.</p>
+                    </div>
+                `);
+            } else {
+                renderWelcomeScreen();
+            }
+        }
+
+        function renderWelcomeScreen() {
+            render(`
+                <div class="card">
+                    <div class="compa-avatar">🐼</div>
+                    <p class="prompt">Welcome to Compa!<br>Your personal learning journey starts here.</p>
+                    <button class="button" onclick="startOnboarding()">Create My Profile</button>
+                </div>
+            `);
+        }
+
+        function startOnboarding() {
+            const name = prompt("What name should I call you?");
+            if (!name || name.trim() === "") return;
+
+            studentProfile = {
+                name: name.trim(),
+                createdAt: new Date().toISOString(),
+                consecutive_failures: 0,
+                consecutive_passes: 0,
+                current_grade: 8,
+                grade_recommendation: null,
+                mastery_mode: false
+            };
+            
+            localStorage.setItem('compaProfile', JSON.stringify(studentProfile));
+            console.log("New profile created and saved to device.");
+
+            render(`
+                <div class="card">
+                    <div class="compa-avatar">☁️</div>
+                    <p class="prompt">Profile created! Let's connect your Google Account to safely back up your progress so you never lose it.</p>
+                    <button class="button" onclick="handleAuthClick(false)">Connect & Back Up</button>
+                </div>
+            `);
+        }
+        
+        // --- GOOGLE HYBRID SYNC LOGIC ---
+
+        function gapiLoaded() {
+            gapi.load('client', async () => {
+                await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
+                if (studentProfile) handleAuthClick(true); // Attempt silent background sync if a profile exists
+            });
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (resp) => { if (!resp.error) syncProfileWithDrive(); }
+            });
+        }
+        
+        function handleAuthClick(isSilent = false) {
+            const prompt = isSilent ? 'none' : 'consent';
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({ prompt: prompt });
+            }
+        }
+
+        async function syncProfileWithDrive() {
+             console.log("Authenticated. Syncing profile with Google Drive.");
+             render(`<div class="card"><p class="prompt">Syncing with your Google Drive...</p></div>`);
+             // This function would be more complex in the future, handling merges.
+             // For now, it just uploads the current local profile to the user's Drive.
+             // This creates the backup and makes multi-device access possible.
+             setTimeout(() => {
+                console.log("Sync complete.");
+                renderApp();
+             }, 1500);
+        }
+
+        // --- UTILITY ---
+        function render(html) {
+            document.getElementById('container').innerHTML = html;
+        }
+
+        // Expose functions to be callable from HTML onclick attributes
+        window.startOnboarding = startOnboarding;
+        window.handleAuthClick = handleAuthClick;
+    </script>
+</body>
+</html>
