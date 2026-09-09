@@ -10,7 +10,7 @@
     <style>
         :root { --cream: #F5F2EB; --ink: #333333; }
         body { font-family: 'Baloo 2', cursive; background-color: var(--cream); color: var(--ink); margin: 0; padding: 0; }
-        .container { max-width: 700px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; }
+        .container { max-width: 700px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; line-height: 1.6; }
         h1 { text-align: center; }
     </style>
 </head>
@@ -18,19 +18,28 @@
     <div class="container">
         <h1>Compa Privacy Policy</h1>
         <p><strong>Last Updated: September 9, 2026</strong></p>
-        <p>Compa is designed to be a private, personal learning tool for every child. Our philosophy is simple: <strong>you own your data, always.</strong></p>
+        <p>This Privacy Policy explains our principles regarding the collection, use, and disclosure of your information. Our philosophy is simple: <strong>you own your data, always.</strong></p>
         
-        <h3>1. No Data Collection</h3>
-        <p>The Compa application does not collect, store, or transmit any of your personal information to its creators or any third party.</p>
+        <h3>1. Information We Do Not Collect</h3>
+        <p>The Compa application ("the Service") does not create any user accounts on our own servers. We do not collect or store any personally identifiable information (PII) such as your name, email address, age, or location. We do not use cookies or tracking technologies.</p>
         
-        <h3>2. Local and Cloud Storage</h3>
-        <p>Your learning profile (<code>compa_profile.json</code>) is stored in two places: directly on your device for offline use, and securely in your own personal Google Drive for backup. We, the creators of Compa, do not have access to this file. It is yours alone.</p>
+        <h3>2. How We Use Google Authentication</h3>
+        <p>Compa uses Google Sign-In to authenticate you and to store your learning profile in your own personal Google Drive. This process is handled securely by Google. When you grant permission, our application receives a temporary access token with a very limited scope:</p>
+        <ul>
+            <li><strong>It can only access files created by the Compa application itself.</strong></li>
+            <li>It cannot see, read, or access any of your other files, documents, emails, or personal information in your Google account.</li>
+        </ul>
+
+        <h3>3. Data Storage</h3>
+        <p>Your personal learning profile (a file named <code>compa_profile.json</code>) is stored in two places:</p>
+        <ul>
+            <li><strong>On your local device:</strong> For fast, offline access, your profile is saved in your browser's local storage.</li>
+            <li><strong>In your Google Drive:</strong> For backup and to sync your progress across different devices, a copy of your profile is saved in your own Google Drive account.</li>
+        </ul>
+        <p>We, the creators of Compa, do not have access to this file or the data within it. You have full control over this file and can delete it at any time from your Google Drive.</p>
         
-        <h3>3. Google Authentication</h3>
-        <p>When you sign in with Google, you are authenticating directly with Google's secure servers. We only receive permission to create and manage the single <code>compa_profile.json</code> file in your Drive. We do not have permission to see any of your other files, documents, or personal information.</p>
-        
-        <hr>
-        <p>Compa is a gift. It is not a product, and you are not the product. Your privacy is fundamental to our mission.</p>
+        <h3>4. Contact Us</h3>
+        <p>If you have any questions about this Privacy Policy, you can contact the developer at the email address provided during the app consent process.</p>
     </div>
 </body>
 </html>
