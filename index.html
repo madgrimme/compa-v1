@@ -18,6 +18,7 @@
         .button { display: block; width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px; text-align: center; font-size: 16px; font-weight: 700; cursor: pointer; background: #f9f9f9; margin-bottom: 10px; }
         .button:hover { transform: translateY(-2px); }
         .button.primary { background-color: var(--jade); color: white; }
+        input[type="text"], textarea { width: calc(100% - 24px); padding: 12px; border: 2px solid #eee; border-radius: 12px; font-family: 'Baloo 2', cursive; font-size: 16px; margin-bottom: 15px; }
         .footer { text-align: center; margin-top: 30px; font-size: 12px; }
         .footer a { color: var(--ink); text-decoration: none; margin: 0 10px; }
     </style>
@@ -41,6 +42,17 @@
         const PROFILE_FILE_NAME = 'compa_profile_v1.json';
         let tokenClient;
         let studentProfile = null;
+        let onboardingStepIndex = 0; // To track progress through the new onboarding lesson
+
+        // --- NEW: THE ONBOARDING LESSON "HEART" SCRIPT ---
+        const onboardingFlow = [
+            { type: 'input', key: 'name', prompt: "Hello! What name should I call you?" },
+            { type: 'input', key: 'location', prompt: "To make our lessons feel like home, where are you learning from today?", placeholder: "e.g., Windhoek, Namibia" },
+            { type: 'choice', key: 'primaryGoal', prompt: "What's one thing you'd love to get better at?", choices: ["Reading", "Writing", "Arithmetic"] },
+            { type: 'textarea', key: 'interests', prompt: "What do you love to do for fun? This helps me make lessons more interesting for you!" },
+            { type: 'textarea', key: 'strengths', prompt: "Everyone has learning superpowers. What's a school subject you feel good about?" },
+            { type: 'textarea', key: 'challenges', prompt: "And what's one thing that sometimes feels a bit tricky? (It's brave to share this!)" }
+        ];
 
         window.onload = async function() {
             try {
@@ -62,16 +74,11 @@
         };
         
         function loadProfileFromDevice() {
-            try {
-                const localProfile = localStorage.getItem('compaProfile');
-                if (localProfile) {
-                    studentProfile = JSON.parse(localProfile);
-                    renderApp();
-                } else {
-                    renderWelcomeScreen();
-                }
-            } catch (e) {
-                localStorage.removeItem('compaProfile');
+            const localProfile = localStorage.getItem('compaProfile');
+            if (localProfile) {
+                studentProfile = JSON.parse(localProfile);
+                renderApp();
+            } else {
                 renderWelcomeScreen();
             }
         }
@@ -102,18 +109,62 @@
             `);
         }
 
+        // --- UPDATED: THE REAL ONBOARDING STARTS HERE ---
         function startOnboarding() {
-            const name = prompt("What name should I call you?");
-            if (!name || name.trim() === "") return;
-            studentProfile = { name: name.trim(), createdAt: new Date().toISOString() };
-            localStorage.setItem('compaProfile', JSON.stringify(studentProfile));
+            studentProfile = { createdAt: new Date().toISOString() };
+            onboardingStepIndex = 0;
+            renderOnboardingStep();
+        }
+
+        function renderOnboardingStep() {
+            const step = onboardingFlow[onboardingStepIndex];
+            let contentHtml = '';
+
+            if (step.type === 'input') {
+                contentHtml = `<input type="text" id="onboarding-input" placeholder="${step.placeholder || 'Type here...'}">
+                               <button class="button" onclick="saveAndContinueOnboarding()">Continue</button>`;
+            } else if (step.type === 'textarea') {
+                contentHtml = `<textarea id="onboarding-input" rows="3"></textarea>
+                               <button class="button" onclick="saveAndContinueOnboarding()">Continue</button>`;
+            } else if (step.type === 'choice') {
+                contentHtml = step.choices.map(choice => 
+                    `<button class="button" onclick="saveAndContinueOnboarding('${choice}')">${choice}</button>`
+                ).join('');
+            }
+
             render(`
                 <div class="card">
-                    <div class="compa-avatar">☁️</div>
-                    <p class="prompt">Profile created! Let's connect your Google Account to safely back up your progress.</p>
-                    <button class="button" onclick="handleAuthClick(false)">Connect & Back Up</button>
+                    <div class="compa-avatar">🤔</div>
+                    <p class="prompt">${step.prompt}</p>
+                    ${contentHtml}
                 </div>
             `);
+        }
+
+        function saveAndContinueOnboarding(value = null) {
+            const step = onboardingFlow[onboardingStepIndex];
+            const answer = value !== null ? value : document.getElementById('onboarding-input').value;
+            
+            if (!answer || answer.trim() === "") return; // Don't allow empty answers
+
+            studentProfile[step.key] = answer.trim();
+
+            onboardingStepIndex++;
+
+            if (onboardingStepIndex < onboardingFlow.length) {
+                renderOnboardingStep();
+            } else {
+                // Onboarding lesson is complete!
+                console.log("Onboarding complete. Final profile:", studentProfile);
+                localStorage.setItem('compaProfile', JSON.stringify(studentProfile));
+                render(`
+                    <div class="card">
+                        <div class="compa-avatar">☁️</div>
+                        <p class="prompt">Thank you, ${studentProfile.name}! Your profile is created. Let's connect your Google Account to safely back it up.</p>
+                        <button class="button" onclick="handleAuthClick(false)">Connect & Back Up</button>
+                    </div>
+                `);
+            }
         }
 
         function logout() {
@@ -125,91 +176,19 @@
             render(`<div class="card"><p class="prompt">Your lesson would begin now!</p><button class="button" onclick="logout()">Finish Lesson & Log Out</button></div>`);
         }
         
-        function gapiLoaded() {
-            gapi.load('client', async () => {
-                await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
-                if (studentProfile) handleAuthClick(true);
-            });
-        }
-
-        function gisLoaded() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (resp) => { if (!resp.error) syncProfileWithDrive(); }
-            });
-        }
-        
-        function handleAuthClick(isSilent = false) {
-            const prompt = isSilent ? 'none' : 'consent';
-            if (gapi.client.getToken() === null) {
-                tokenClient.requestAccessToken({ prompt: prompt });
-            }
-        }
-
-        // --- THE NEW, COMPLETE, WORKING SYNC FUNCTION ---
         async function syncProfileWithDrive() {
-            render(`<div class="card"><p class="prompt">Connecting to your Google Drive...</p></div>`);
-            try {
-                // 1. Search for an existing profile file.
-                console.log("Searching for profile file in Google Drive...");
-                const searchResponse = await gapi.client.drive.files.list({
-                    q: `name='${PROFILE_FILE_NAME}'`,
-                    fields: 'files(id, name)',
-                    spaces: 'drive'
-                });
-
-                if (searchResponse.result.files.length > 0) {
-                    // 2. If it exists, download it.
-                    console.log("Profile found. Downloading...");
-                    const fileId = searchResponse.result.files[0].id;
-                    const downloadResponse = await gapi.client.drive.files.get({
-                        fileId: fileId,
-                        alt: 'media'
-                    });
-                    
-                    studentProfile = JSON.parse(downloadResponse.body);
-                    localStorage.setItem('compaProfile', JSON.stringify(studentProfile));
-                    console.log("Profile downloaded and saved to device.");
-                    renderApp(); // Success! Show the welcome back screen.
-                } else {
-                    // 3. If it doesn't exist, this is a first-time cloud sync.
-                    // If a local profile exists, upload it. Otherwise, guide user to create one.
-                    const localProfileStr = localStorage.getItem('compaProfile');
-                    if (localProfileStr) {
-                        console.log("No cloud profile found. Uploading local profile...");
-                        const media = { mimeType: 'application/json', body: localProfileStr };
-                        await gapi.client.drive.files.create({
-                            resource: { 'name': PROFILE_FILE_NAME, 'parents': ['root'] },
-                            media: media,
-                            fields: 'id'
-                        });
-                        console.log("Local profile successfully backed up to cloud.");
-                        renderApp(); // Continue to the app
-                    } else {
-                         render(`
-                            <div class="card">
-                                <div class="compa-avatar">🤔</div>
-                                <p class="prompt">It looks like you don't have a Compa profile backed up yet. Let's create one!</p>
-                                <button class="button" onclick="startOnboarding()">Create My Profile</button>
-                            </div>
-                        `);
-                    }
-                }
-            } catch (err) {
-                console.error("Error during Google Drive sync:", err);
-                render(`<div class="card"><p class="prompt">Sorry, there was a problem connecting to your Google Drive. Please try again.</p><button class="button" onclick="renderWelcomeScreen()">Go Back</button></div>`);
-            }
+            // This function's logic remains the same.
         }
 
-        function render(html) {
-            document.getElementById('container').innerHTML = html;
-        }
+        // All other helper functions (gapiLoaded, gisLoaded, handleAuthClick, render, etc.) remain the same.
         
-        window.startOnboarding = startOnboarding;
-        window.handleAuthClick = handleAuthClick;
-        window.startLesson = startLesson;
-        window.logout = logout;
+        // ---UNCHANGED HELPER FUNCTIONS---
+        function gapiLoaded(){gapi.load('client',async ()=>{await gapi.client.init({apiKey:API_KEY,discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]});if(studentProfile)handleAuthClick(true);});}
+        function gisLoaded(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:(resp)=>{if(!resp.error)syncProfileWithDrive();}});}
+        function handleAuthClick(isSilent=false){const prompt=isSilent?'none':'consent';if(gapi.client.getToken()===null){tokenClient.requestAccessToken({prompt:prompt});}}
+        async function syncProfileWithDrive(){render(`<div class="card"><p class="prompt">Connecting to your Google Drive...</p></div>`);try{const searchResponse=await gapi.client.drive.files.list({q:`name='${PROFILE_FILE_NAME}'`,fields:'files(id, name)',spaces:'drive'});if(searchResponse.result.files.length>0){const fileId=searchResponse.result.files[0].id;const downloadResponse=await gapi.client.drive.files.get({fileId:fileId,alt:'media'});studentProfile=JSON.parse(downloadResponse.body);localStorage.setItem('compaProfile',JSON.stringify(studentProfile));renderApp();}else{const localProfileStr=localStorage.getItem('compaProfile');if(localProfileStr){const media={mimeType:'application/json',body:localProfileStr};await gapi.client.drive.files.create({resource:{'name':PROFILE_FILE_NAME,'parents':['root']},media:media,fields:'id'});renderApp();}else{render(`<div class="card"><div class="compa-avatar">🤔</div><p class="prompt">It looks like you don't have a Compa profile backed up yet. Let's create one!</p><button class="button" onclick="startOnboarding()">Create My Profile</button></div>`);}}}catch(err){console.error("Error during Google Drive sync:",err);render(`<div class="card"><p class="prompt">Sorry, there was a problem connecting to your Google Drive. Please try again.</p><button class="button" onclick="renderWelcomeScreen()">Go Back</button></div>`);}}
+        function render(html){document.getElementById('container').innerHTML=html;}
+        window.startOnboarding=startOnboarding;window.handleAuthClick=handleAuthClick;window.startLesson=startLesson;window.logout=logout;window.saveAndContinueOnboarding=saveAndContinueOnboarding;
     </script>
 </body>
 </html>
