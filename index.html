@@ -15,20 +15,11 @@
         @keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .compa-avatar { font-size: 60px; }
         .prompt { font-size: 18px; line-height: 1.5; margin-bottom: 25px; }
-        .button { display: block; width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px; text-align: center; font-size: 16px; font-weight: 700; cursor: pointer; background: #f9f9f9; }
+        .button { display: block; width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px; text-align: center; font-size: 16px; font-weight: 700; cursor: pointer; background: #f9f9f9; margin-bottom: 10px; }
         .button:hover { transform: translateY(-2px); }
-        
-        /* --- NEW FOOTER STYLES --- */
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 12px;
-        }
-        .footer a {
-            color: var(--ink);
-            text-decoration: none;
-            margin: 0 10px;
-        }
+        .button.primary { background-color: var(--jade); color: white; }
+        .footer { text-align: center; margin-top: 30px; font-size: 12px; }
+        .footer a { color: var(--ink); text-decoration: none; margin: 0 10px; }
     </style>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -38,50 +29,35 @@
         <div class="card"><p class="prompt">Loading Compa...</p></div>
     </div>
 
-    <!-- NEW FOOTER HTML -->
     <div class="footer">
         <a href="/privacy.html" target="_blank">Privacy Policy</a> | 
         <a href="/terms.html" target="_blank">Terms of Service</a>
     </div>
 
     <script>
-        // These will be populated by our secure helper file.
         let API_KEY = null;
         let CLIENT_ID = null;
-
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const PROFILE_FILE_NAME = 'compa_profile_v1.json';
-        
         let tokenClient;
         let studentProfile = null;
 
-        // Main entry point. This runs as soon as the page loads.
         window.onload = async function() {
             try {
-                // Step 1: Securely fetch the configuration from our helper file.
                 const response = await fetch('/api/config');
-                if (!response.ok) {
-                    throw new Error(`Configuration server responded with status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`Config server error: ${response.status}`);
                 const config = await response.json();
-                
                 API_KEY = config.apiKey;
                 CLIENT_ID = config.clientId;
-
-                if (!API_KEY || !CLIENT_ID) {
-                    throw new Error("API Key or Client ID is missing from configuration.");
-                }
-
+                if (!API_KEY || !CLIENT_ID) throw new Error("Keys missing from config.");
                 console.log("Configuration loaded successfully.");
                 
-                // Step 2: Now that keys are loaded, initialize the app.
                 loadProfileFromDevice();
                 gisLoaded();
                 gapiLoaded();
-
             } catch (error) {
-                console.error("Critical Error: Failed to fetch configuration.", error);
-                render(`<div class="card"><p class="prompt">Could not load Compa's configuration. Please check your connection and try again.</p></div>`);
+                console.error("Critical Error:", error);
+                render(`<div class="card"><p class="prompt">Could not load Compa. Please check your connection and try again.</p></div>`);
             }
         };
         
@@ -95,7 +71,7 @@
                     renderWelcomeScreen();
                 }
             } catch (e) {
-                localStorage.removeItem('compaProfile'); // Clear corrupted data
+                localStorage.removeItem('compaProfile');
                 renderWelcomeScreen();
             }
         }
@@ -106,7 +82,8 @@
                     <div class="card">
                         <div class="compa-avatar">👋</div>
                         <p class="prompt">Welcome back, ${studentProfile.name}!</p>
-                        <p style="font-size:14px;">This is where lessons will begin.</p>
+                        <button class="button primary" onclick="startLesson()">Start My Lesson</button>
+                        <button class="button" onclick="logout()">Not ${studentProfile.name}? Switch User</button>
                     </div>
                 `);
             } else {
@@ -137,6 +114,19 @@
                 </div>
             `);
         }
+
+        // --- NEW FUNCTION TO LOG OUT ---
+        function logout() {
+            // Clear the user from the device's memory
+            localStorage.removeItem('compaProfile');
+            // Reload the page to start fresh
+            location.reload();
+        }
+        
+        function startLesson() {
+            // This is where the real lesson engine will go.
+            render(`<div class="card"><p class="prompt">Your lesson would begin now!</p><button class="button" onclick="logout()">Finish Lesson & Log Out</button></div>`);
+        }
         
         function gapiLoaded() {
             gapi.load('client', async () => {
@@ -155,8 +145,6 @@
         
         function handleAuthClick(isSilent = false) {
             const prompt = isSilent ? 'none' : 'consent';
-            if (!gapi.client) { console.error("GAPI client not initialized."); return; }
-            if (!tokenClient) { console.error("Token client not initialized."); return; }
             if (gapi.client.getToken() === null) {
                 tokenClient.requestAccessToken({ prompt: prompt });
             }
@@ -174,8 +162,11 @@
             document.getElementById('container').innerHTML = html;
         }
         
+        // Expose all functions that HTML buttons will call
         window.startOnboarding = startOnboarding;
         window.handleAuthClick = handleAuthClick;
+        window.startLesson = startLesson;
+        window.logout = logout;
     </script>
 </body>
 </html>
