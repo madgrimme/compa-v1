@@ -91,12 +91,14 @@
             }
         }
 
+        // --- UPDATED WELCOME SCREEN ---
         function renderWelcomeScreen() {
             render(`
                 <div class="card">
                     <div class="compa-avatar">🐼</div>
                     <p class="prompt">Welcome to Compa!<br>Your personal learning journey starts here.</p>
-                    <button class="button" onclick="startOnboarding()">Create My Profile</button>
+                    <button class="button primary" onclick="startOnboarding()">Create My Profile (New User)</button>
+                    <button class="button" onclick="handleAuthClick(false)">Log In (Returning User)</button>
                 </div>
             `);
         }
@@ -115,16 +117,12 @@
             `);
         }
 
-        // --- NEW FUNCTION TO LOG OUT ---
         function logout() {
-            // Clear the user from the device's memory
             localStorage.removeItem('compaProfile');
-            // Reload the page to start fresh
             location.reload();
         }
         
         function startLesson() {
-            // This is where the real lesson engine will go.
             render(`<div class="card"><p class="prompt">Your lesson would begin now!</p><button class="button" onclick="logout()">Finish Lesson & Log Out</button></div>`);
         }
         
@@ -150,8 +148,10 @@
             }
         }
 
-        function syncProfileWithDrive() {
-             render(`<div class="card"><p class="prompt">Syncing with your Google Drive...</p></div>`);
+        async function syncProfileWithDrive() {
+             render(`<div class="card"><p class="prompt">Connecting to your Google Drive...</p></div>`);
+             // In a real version, this function would download an existing profile if found,
+             // or upload the new one if not. For now, it simulates the sync.
              setTimeout(() => {
                 console.log("Sync complete.");
                 renderApp();
@@ -162,7 +162,6 @@
             document.getElementById('container').innerHTML = html;
         }
         
-        // Expose all functions that HTML buttons will call
         window.startOnboarding = startOnboarding;
         window.handleAuthClick = handleAuthClick;
         window.startLesson = startLesson;
