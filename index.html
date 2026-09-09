@@ -91,7 +91,6 @@
             }
         }
 
-        // --- UPDATED WELCOME SCREEN ---
         function renderWelcomeScreen() {
             render(`
                 <div class="card">
@@ -148,14 +147,59 @@
             }
         }
 
+        // --- THE NEW, COMPLETE, WORKING SYNC FUNCTION ---
         async function syncProfileWithDrive() {
-             render(`<div class="card"><p class="prompt">Connecting to your Google Drive...</p></div>`);
-             // In a real version, this function would download an existing profile if found,
-             // or upload the new one if not. For now, it simulates the sync.
-             setTimeout(() => {
-                console.log("Sync complete.");
-                renderApp();
-             }, 1500);
+            render(`<div class="card"><p class="prompt">Connecting to your Google Drive...</p></div>`);
+            try {
+                // 1. Search for an existing profile file.
+                console.log("Searching for profile file in Google Drive...");
+                const searchResponse = await gapi.client.drive.files.list({
+                    q: `name='${PROFILE_FILE_NAME}'`,
+                    fields: 'files(id, name)',
+                    spaces: 'drive'
+                });
+
+                if (searchResponse.result.files.length > 0) {
+                    // 2. If it exists, download it.
+                    console.log("Profile found. Downloading...");
+                    const fileId = searchResponse.result.files[0].id;
+                    const downloadResponse = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+                    
+                    studentProfile = JSON.parse(downloadResponse.body);
+                    localStorage.setItem('compaProfile', JSON.stringify(studentProfile));
+                    console.log("Profile downloaded and saved to device.");
+                    renderApp(); // Success! Show the welcome back screen.
+                } else {
+                    // 3. If it doesn't exist, this is a first-time cloud sync.
+                    // If a local profile exists, upload it. Otherwise, guide user to create one.
+                    const localProfileStr = localStorage.getItem('compaProfile');
+                    if (localProfileStr) {
+                        console.log("No cloud profile found. Uploading local profile...");
+                        const media = { mimeType: 'application/json', body: localProfileStr };
+                        await gapi.client.drive.files.create({
+                            resource: { 'name': PROFILE_FILE_NAME, 'parents': ['root'] },
+                            media: media,
+                            fields: 'id'
+                        });
+                        console.log("Local profile successfully backed up to cloud.");
+                        renderApp(); // Continue to the app
+                    } else {
+                         render(`
+                            <div class="card">
+                                <div class="compa-avatar">🤔</div>
+                                <p class="prompt">It looks like you don't have a Compa profile backed up yet. Let's create one!</p>
+                                <button class="button" onclick="startOnboarding()">Create My Profile</button>
+                            </div>
+                        `);
+                    }
+                }
+            } catch (err) {
+                console.error("Error during Google Drive sync:", err);
+                render(`<div class="card"><p class="prompt">Sorry, there was a problem connecting to your Google Drive. Please try again.</p><button class="button" onclick="renderWelcomeScreen()">Go Back</button></div>`);
+            }
         }
 
         function render(html) {
