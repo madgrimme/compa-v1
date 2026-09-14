@@ -26,8 +26,8 @@
         .footer { text-align: center; margin-top: 30px; font-size: 12px; }
         .footer a { color: var(--ink); text-decoration: none; margin: 0 10px; }
     </style>
-
-    <!-- FIX: Main script is now in the head to define functions before they are called -->
+    
+    <!-- FIX: Main script now in the head to guarantee functions exist before they are called. -->
     <script>
         // --- FOUNDATION ---
         let API_KEY = null, CLIENT_ID = null;
@@ -36,58 +36,19 @@
         let tokenClient, studentProfile = null;
         let isGapiInitialized = false, isGisInitialized = false;
 
-        // --- LESSON ENGINE ---
+        // --- LESSON ENGINE SCRIPT ---
+        const heartModule=[{type:"input",key:"name",prompt:"Hello! What name should I call you?"},{type:"input",key:"location",prompt:"To make our lessons feel like home, where are you learning from today?",placeholder:"e.g., Windhoek, Namibia"},{type:"choice",key:"primaryGoal",prompt:"What's one thing you'd love to get better at?",choices:["Reading","Writing","Arithmetic"]},{type:"textarea",key:"interests",prompt:"What do you love to do for fun?"},{type:"textarea",key:"strengths",prompt:"What's a school subject you feel good about?"},{type:"textarea",key:"challenges",prompt:"And what's one thing that sometimes feels a bit tricky?"}];
+        const readingDiagnostic=[{type:"transition",prompt:"Great! Let's start with Reading. First, we'll learn the 'Architect's Tools' to understand any question."},{type:"iaf-training",prompt:"Every question has three parts. Click on the part I ask for.",question:"In the second paragraph, explain why the tortoise was so determined.",parts:{instruction:"explain",address:"In the second paragraph",focus:"why the tortoise was so determined"}},{type:"vocab",prompt:"A tortoise is very **determined**. What does that mean?",choices:["Someone who gives up easily","Someone who keeps trying, no matter what","Someone who is very old"],answer:"Someone who keeps trying, no matter what"},{type:"analytical",prompt:"Read this: *The tortoise was slow, but he never stopped. The hare was fast, but he took a long nap.* <br><br>In your own words, why do you think the tortoise won the race?"}];
+        const writingDiagnostic=[{type:"transition",prompt:"Great! Let's work on Writing. To start, let's warm up with a short sentence."},{type:"analytical",key:"writing_sample",prompt:"Write one single sentence describing your favorite animal. Try to use a describing word (an adjective)!"}];
+        const arithmeticDiagnostic=[{type:"transition",prompt:"Great! Let's do some Arithmetic. Here is a quick puzzle."},{type:"analytical",key:"arithmetic_sample",prompt:"A baker has 12 cookies. He sells 5 of them. Then he bakes 6 more. How many cookies does the baker have now? Please write your answer and how you figured it out."}];
+        let iafState={currentPart:"instruction",selections:{}};
         let onboardingFlow = [];
         let onboardingStepIndex = 0;
-        const heartModule = [
-            { type: 'input', key: 'name', prompt: "Hello! What name should I call you?" },
-            { type: 'input', key: 'location', prompt: "To make our lessons feel like home, where are you learning from today?", placeholder: "e.g., Windhoek, Namibia" },
-            { type: 'choice', key: 'primaryGoal', prompt: "What's one thing you'd love to get better at?", choices: ["Reading", "Writing", "Arithmetic"] },
-            { type: 'textarea', key: 'interests', prompt: "What do you love to do for fun?" },
-            { type: 'textarea', key: 'strengths', prompt: "What's a school subject you feel good about?" },
-            { type: 'textarea', key: 'challenges', prompt: "And what's one thing that sometimes feels a bit tricky?" },
-        ];
-        const readingDiagnostic = [
-            { type: 'transition', prompt: "Great! Let's start with Reading. First, we'll learn the 'Architect's Tools' to understand any question."},
-            { type: 'iaf-training', prompt: "Every question has three parts. Click on the part I ask for.", question: "In the second paragraph, explain why the tortoise was so determined.", parts: { instruction: "explain", address: "In the second paragraph", focus: "why the tortoise was so determined" } },
-            { type: 'vocab', prompt: "A tortoise is very **determined**. What does that mean?", choices: ["Someone who gives up easily", "Someone who keeps trying, no matter what", "Someone who is very old"], answer: "Someone who keeps trying, no matter what" },
-            { type: 'analytical', prompt: "Read this: *The tortoise was slow, but he never stopped. The hare was fast, but he took a long nap.* <br><br>In your own words, why do you think the tortoise won the race?" },
-        ];
-        const writingDiagnostic = [
-            { type: 'transition', prompt: "Great! Let's work on Writing. To start, let's warm up with a short sentence."},
-            { type: 'analytical', key: 'writing_sample', prompt: "Write one single sentence describing your favorite animal. Try to use a describing word (an adjective)!"},
-        ];
-        const arithmeticDiagnostic = [
-            { type: 'transition', prompt: "Great! Let's do some Arithmetic. Here is a quick puzzle."},
-            { type: 'analytical', key: 'arithmetic_sample', prompt: "A baker has 12 cookies. He sells 5 of them. Then he bakes 6 more. How many cookies does the baker have now? Please write your answer and how you figured it out."},
-        ];
-        let iafState = { currentPart: 'instruction', selections: {} };
 
-        // --- CORE FUNCTIONS (DEFINED BEFORE BEING CALLED) ---
-        function gapiLoaded() {
-            gapi.load('client', async () => {
-                await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
-                isGapiInitialized = true;
-                console.log("GAPI client initialized.");
-                checkAuthReady();
-                if (studentProfile) handleAuthClick(true);
-            });
-        }
-        function gisLoaded() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (resp) => { if (!resp.error) syncProfileWithDrive(); }
-            });
-            isGisInitialized = true;
-            console.log("GIS client initialized.");
-            checkAuthReady();
-        }
+        // --- CORE FUNCTIONS ---
+        function gapiLoaded(){gapi.load("client",async()=>{await gapi.client.init({apiKey:API_KEY,discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]}),isGapiInitialized=!0,console.log("GAPI client initialized."),checkAuthReady(),studentProfile&&handleAuthClick(!0)})}
+        function gisLoaded(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:e=>{e.error||syncProfileWithDrive()}}),isGisInitialized=!0,console.log("GIS client initialized."),checkAuthReady()}
     </script>
-    
-    <!-- FIX: Google libraries load after the functions they call have been defined -->
-    <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
-    <script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
 </head>
 <body>
     <div id="container">
@@ -98,7 +59,12 @@
         <a href="/terms.html" target="_blank">Terms of Service</a>
     </div>
 
+    <!-- FIX: Scripts are now at the end and have no onload attributes -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    
     <script>
+        // This is the main execution script
         window.onload = async function() {
             try {
                 const response = await fetch('/api/config');
@@ -107,20 +73,20 @@
                 API_KEY = config.apiKey;
                 CLIENT_ID = config.clientId;
                 if (!API_KEY || !CLIENT_ID) throw new Error("Keys missing from config.");
+                
+                // --- FIX: Manually initialize Google libraries AFTER config is fetched ---
+                gapiLoaded();
+                gisLoaded();
+                // ---
+                
                 loadProfileFromDevice();
             } catch (error) {
                 renderErrorState("Could not load Compa's configuration. Please check your connection and try again.");
             }
         };
 
-        function checkAuthReady(){if(isGapiInitialized&&isGisInitialized){const e=document.getElementById("connect-button");e&&e.disabled&&(e.disabled=!1,e.textContent="Connect & Back Up")}}
-        function finishOnboarding(){console.log("Onboarding complete. Final profile:",studentProfile),localStorage.setItem("compaProfile",JSON.stringify(studentProfile)),render(`<div class="card"><div class="compa-avatar">☁️</div><p class="prompt">Thank you, ${studentProfile.name}! Your Compa is now calibrated. Let's back up your profile to the cloud.</p><button id="connect-button" class="button" onclick="handleAuthClick(false)" disabled>Connecting to Google...</button></div>`),checkAuthReady()}
-        function loadProfileFromDevice(){try{const e=localStorage.getItem("compaProfile");if(e)studentProfile=JSON.parse(e),renderApp();else renderWelcomeScreen()}catch(e){localStorage.removeItem("compaProfile"),renderWelcomeScreen()}}function renderApp(){if(studentProfile&&studentProfile.name)render(`<div class="card"><div class="compa-avatar">👋</div><p class="prompt">Welcome back, ${studentProfile.name}!</p><button class="button primary" onclick="startLesson()">Start My Lesson</button><button class="button" onclick="logout()">Not ${studentProfile.name}? Switch User</button></div>`);else renderWelcomeScreen()}function renderWelcomeScreen(){render(`<div class="card"><div class="compa-avatar">🐼</div><p class="prompt">Welcome to Compa!<br>Your personal learning journey starts here.</p><button class="button primary" onclick="startOnboarding()">Create My Profile (New User)</button><button class="button" onclick="handleAuthClick(false)">Log In (Returning User)</button></div>`)}
-        function startOnboarding(){studentProfile={createdAt:new Date().toISOString(),consecutive_failures:0,consecutive_passes:0,grade_recommendation:null,mastery_mode:!1};onboardingFlow=[...heartModule];onboardingStepIndex=0;renderOnboardingStep()}
-        function renderOnboardingStep(){if(onboardingStepIndex>=onboardingFlow.length)return finishOnboarding();const e=onboardingFlow[onboardingStepIndex];let o="";switch(e.type){case"input":case"textarea":o=`<${e.type} id="onboarding-input" placeholder="${e.placeholder||"Type here..."}"></${e.type}><button class="button" onclick="saveAndContinueOnboarding()">Continue</button>`;break;case"choice":o=e.choices.map(e=>`<button class="button" onclick="saveAndContinueOnboarding('${e}')">${e}</button>`).join("");break;case"transition":o=`<button class="button primary" onclick="saveAndContinueOnboarding()">Let's Go!</button>`;break;case"iaf-training":iafState={currentPart:"instruction",selections:{}},o=renderIAFStep();break;case"vocab":o=e.choices.map(o=>`<button class="button" onclick="handleVocabChoice('${o}', '${e.answer}')">${o}</button>`).join("");break;case"analytical":o=`<textarea id="onboarding-input" rows="4"></textarea><button class="button" onclick="saveAndContinueOnboarding()">Submit</button>`}render(`<div class="card"><div class="compa-avatar">🐼</div><p class="prompt" id="prompt-text">${e.prompt}</p>${o}</div>`)}
-        function renderIAFStep(){const e=onboardingFlow[onboardingStepIndex].parts;return document.getElementById("prompt-text").textContent=`Click on the '${iafState.currentPart}'.`,`<p class="prompt iaf-question"><span onclick="checkIAF(this.textContent, 'address')">${e.address}</span>, <span onclick="checkIAF(this.textContent, 'instruction')">${e.instruction}</span> <span onclick="checkIAF(this.textContent, 'focus')">${e.focus}</span>.</p>`}function checkIAF(e,o){const t=document.querySelectorAll(".iaf-question span");if(o===iafState.currentPart){iafState.selections[o]=e,t.forEach(o=>{o.textContent===e&&o.classList.add("selected")}),"instruction"===iafState.currentPart?iafState.currentPart="address":"address"===iafState.currentPart?iafState.currentPart="focus":saveAndContinueOnboarding("Completed"),document.getElementById("prompt-text").textContent=`Correct! Now click on the '${iafState.currentPart}'.`}else document.getElementById("prompt-text").textContent=`Not quite. Try finding the '${iafState.currentPart}'.`}function handleVocabChoice(e,o){e===o?saveAndContinueOnboarding(e):(document.getElementById("prompt-text").textContent="Good try! 'Determined' means someone who doesn't give up.",setTimeout(()=>saveAndContinueOnboarding(e),2e3))}
-        function saveAndContinueOnboarding(e=null){const o=onboardingFlow[onboardingStepIndex];if("transition"!==o.type){const t=null!==e?e:document.getElementById("onboarding-input").value;if(!t||"string"==typeof t&&""===t.trim())return;const n="string"==typeof t?t.trim():t;studentProfile[o.key||`diagnostic_${o.type}`]=n,o.key==="primaryGoal"&&("Reading"===n?onboardingFlow.push(...readingDiagnostic):"Writing"===n?onboardingFlow.push(...writingDiagnostic):"Arithmetic"===n&&onboardingFlow.push(...arithmeticDiagnostic))}onboardingStepIndex++,renderOnboardingStep()}
-        function logout(){localStorage.removeItem("compaProfile"),location.reload()}function startLesson(){render(`<div class="card"><p class="prompt">Your lesson would begin now!</p><button class="button" onclick="logout()">Finish Lesson & Log Out</button></div>`)}function handleAuthClick(e=!1){if(!isGapiInitialized||!isGisInitialized)return void console.error("Auth libraries not ready. Aborting auth request.");const o=e?"none":"consent";null===gapi.client.getToken()?tokenClient.requestAccessToken({prompt:o}):syncProfileWithDrive()}async function syncProfileWithDrive(){if(!isGapiInitialized)return console.error("GAPI client not ready for sync operation."),void renderErrorState();render(`<div class="card"><p class="prompt">Connecting to your Google Drive...</p></div>`);try{const e=await gapi.client.drive.files.list({q:`name='${PROFILE_FILE_NAME}'`,fields:"files(id, name)",spaces:"drive"});if(e.result.files.length>0){const o=e.result.files[0].id,t=await gapi.client.drive.files.get({fileId:o,alt:"media"});studentProfile=JSON.parse(t.body),localStorage.setItem("compaProfile",JSON.stringify(studentProfile)),console.log("Profile downloaded and saved to device."),renderApp()}else{const e=localStorage.getItem("compaProfile");e?(console.log("No cloud profile found. Uploading local profile..."),await gapi.client.drive.files.create({resource:{name:PROFILE_FILE_NAME,parents:["root"]},media:{mimeType:"application/json",body:e},fields:"id"}),console.log("Local profile successfully backed up to cloud."),renderApp()):renderWelcomeScreen()}}catch(e){console.error("Error during Google Drive sync:",e),renderErrorState()}}function renderErrorState(e="Sorry, there was a problem connecting to your Google Drive. Please try again."){render(`<div class="card"><p class="prompt">${e}</p><button class="button" onclick="renderWelcomeScreen()">Go Back</button></div>`)}function render(e){document.getElementById("container").innerHTML=e}window.startOnboarding=startOnboarding;window.handleAuthClick=handleAuthClick;window.startLesson=startLesson;window.logout=logout;window.saveAndContinueOnboarding=saveAndContinueOnboarding;window.checkIAF=checkIAF;window.handleVocabChoice=handleVocabChoice;
+        // All other functions remain the same, just pasting them here.
+        function checkAuthReady(){if(isGapiInitialized&&isGisInitialized){const e=document.getElementById("connect-button");e&&e.disabled&&(e.disabled=!1,e.textContent="Connect & Back Up")}}function finishOnboarding(){console.log("Onboarding complete. Final profile:",studentProfile),localStorage.setItem("compaProfile",JSON.stringify(studentProfile)),render(`<div class="card"><div class="compa-avatar">☁️</div><p class="prompt">Thank you, ${studentProfile.name}! Your Compa is now calibrated. Let's back up your profile to the cloud.</p><button id="connect-button" class="button" onclick="handleAuthClick(false)" disabled>Connecting to Google...</button></div>`),checkAuthReady()}function loadProfileFromDevice(){try{const e=localStorage.getItem("compaProfile");if(e)studentProfile=JSON.parse(e),renderApp();else renderWelcomeScreen()}catch(e){localStorage.removeItem("compaProfile"),renderWelcomeScreen()}}function renderApp(){if(studentProfile&&studentProfile.name)render(`<div class="card"><div class="compa-avatar">👋</div><p class="prompt">Welcome back, ${studentProfile.name}!</p><button class="button primary" onclick="startLesson()">Start My Lesson</button><button class="button" onclick="logout()">Not ${studentProfile.name}? Switch User</button></div>`);else renderWelcomeScreen()}function renderWelcomeScreen(){render(`<div class="card"><div class="compa-avatar">🐼</div><p class="prompt">Welcome to Compa!<br>Your personal learning journey starts here.</p><button class="button primary" onclick="startOnboarding()">Create My Profile (New User)</button><button class="button" onclick="handleAuthClick(false)">Log In (Returning User)</button></div>`)}function startOnboarding(){studentProfile={createdAt:new Date().toISOString(),consecutive_failures:0,consecutive_passes:0,grade_recommendation:null,mastery_mode:!1};onboardingFlow=[...heartModule];onboardingStepIndex=0;renderOnboardingStep()}function renderOnboardingStep(){if(onboardingStepIndex>=onboardingFlow.length)return finishOnboarding();const e=onboardingFlow[onboardingStepIndex];let o="";switch(e.type){case"input":case"textarea":o=`<${e.type} id="onboarding-input" placeholder="${e.placeholder||"Type here..."}"></${e.type}><button class="button" onclick="saveAndContinueOnboarding()">Continue</button>`;break;case"choice":o=e.choices.map(e=>`<button class="button" onclick="saveAndContinueOnboarding('${e}')">${e}</button>`).join("");break;case"transition":o=`<button class="button primary" onclick="saveAndContinueOnboarding()">Let's Go!</button>`;break;case"iaf-training":iafState={currentPart:"instruction",selections:{}},o=renderIAFStep();break;case"vocab":o=e.choices.map(o=>`<button class="button" onclick="handleVocabChoice('${o}', '${e.answer}')">${o}</button>`).join("");break;case"analytical":o=`<textarea id="onboarding-input" rows="4"></textarea><button class="button" onclick="saveAndContinueOnboarding()">Submit</button>`}render(`<div class="card"><div class="compa-avatar">🐼</div><p class="prompt" id="prompt-text">${e.prompt}</p>${o}</div>`)}function renderIAFStep(){const e=onboardingFlow[onboardingStepIndex].parts;return document.getElementById("prompt-text").textContent=`Click on the '${iafState.currentPart}'.`,`<p class="prompt iaf-question"><span onclick="checkIAF(this.textContent, 'address')">${e.address}</span>, <span onclick="checkIAF(this.textContent, 'instruction')">${e.instruction}</span> <span onclick="checkIAF(this.textContent, 'focus')">${e.focus}</span>.</p>`}function checkIAF(e,o){const t=document.querySelectorAll(".iaf-question span");if(o===iafState.currentPart){iafState.selections[o]=e,t.forEach(o=>{o.textContent===e&&o.classList.add("selected")}),"instruction"===iafState.currentPart?iafState.currentPart="address":"address"===iafState.currentPart?iafState.currentPart="focus":saveAndContinueOnboarding("Completed"),document.getElementById("prompt-text").textContent=`Correct! Now click on the '${iafState.currentPart}'.`}else document.getElementById("prompt-text").textContent=`Not quite. Try finding the '${iafState.currentPart}'.`}function handleVocabChoice(e,o){e===o?saveAndContinueOnboarding(e):(document.getElementById("prompt-text").textContent="Good try! 'Determined' means someone who doesn't give up.",setTimeout(()=>saveAndContinueOnboarding(e),2e3))}function saveAndContinueOnboarding(e=null){const o=onboardingFlow[onboardingStepIndex];if("transition"!==o.type){const t=null!==e?e:document.getElementById("onboarding-input").value;if(!t||"string"==typeof t&&""===t.trim())return;const n="string"==typeof t?t.trim():t;studentProfile[o.key||`diagnostic_${o.type}`]=n,o.key==="primaryGoal"&&("Reading"===n?onboardingFlow.push(...readingDiagnostic):"Writing"===n?onboardingFlow.push(...writingDiagnostic):"Arithmetic"===n&&onboardingFlow.push(...arithmeticDiagnostic))}onboardingStepIndex++,renderOnboardingStep()}function logout(){localStorage.removeItem("compaProfile"),location.reload()}function startLesson(){render(`<div class="card"><p class="prompt">Your lesson would begin now!</p><button class="button" onclick="logout()">Finish Lesson & Log Out</button></div>`)}function handleAuthClick(e=!1){if(!isGapiInitialized||!isGisInitialized)return void console.error("Auth libraries not ready. Aborting auth request.");const o=e?"none":"consent";null===gapi.client.getToken()?tokenClient.requestAccessToken({prompt:o}):syncProfileWithDrive()}async function syncProfileWithDrive(){if(!isGapiInitialized)return console.error("GAPI client not ready for sync operation."),void renderErrorState();render(`<div class="card"><p class="prompt">Connecting to your Google Drive...</p></div>`);try{const e=await gapi.client.drive.files.list({q:`name='${PROFILE_FILE_NAME}'`,fields:"files(id, name)",spaces:"drive"});if(e.result.files.length>0){const o=e.result.files[0].id,t=await gapi.client.drive.files.get({fileId:o,alt:"media"});studentProfile=JSON.parse(t.body),localStorage.setItem("compaProfile",JSON.stringify(studentProfile)),console.log("Profile downloaded and saved to device."),renderApp()}else{const e=localStorage.getItem("compaProfile");e?(console.log("No cloud profile found. Uploading local profile..."),await gapi.client.drive.files.create({resource:{name:PROFILE_FILE_NAME,parents:["root"]},media:{mimeType:"application/json",body:e},fields:"id"}),console.log("Local profile successfully backed up to cloud."),renderApp()):renderWelcomeScreen()}}catch(e){console.error("Error during Google Drive sync:",e),renderErrorState()}}function renderErrorState(e="Sorry, there was a problem connecting to your Google Drive. Please try again."){render(`<div class="card"><p class="prompt">${e}</p><button class="button" onclick="renderWelcomeScreen()">Go Back</button></div>`)}function render(e){document.getElementById("container").innerHTML=e}window.startOnboarding=startOnboarding;window.handleAuthClick=handleAuthClick;window.startLesson=startLesson;window.logout=logout;window.saveAndContinueOnboarding=saveAndContinueOnboarding;window.checkIAF=checkIAF;window.handleVocabChoice=handleVocabChoice;
     </script>
 </body>
 </html>
